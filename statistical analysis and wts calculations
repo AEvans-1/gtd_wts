@@ -1,0 +1,811 @@
+---
+title: "Platinum paper stats"
+author: "Arthur Evans"
+date: "2025-08-02"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Loading packages  
+```{r}
+library(tidyverse)
+library(Hmisc)
+library(corrplot)
+library(forcats)
+library(pscl)
+library(logistf)
+library(coin)
+library(emmeans)
+library(psych)
+library(vcd)
+library(DescTools)
+library(corrplot)
+library(ggsci)
+library(RColorBrewer)
+```
+
+#Data cleaning and prep
+##Importing data
+```{r}
+data <- read.csv("data_platinum .csv", header = TRUE)
+EMA_CO_tox <- read.csv("data_EMA/CO .csv", header = TRUE)
+MEA_tox <- read.csv("data_MEA .csv", header = TRUE)
+```
+
+##Excluding irrelevant variables and heading columns from the dataset 
+```{r}
+data$Patient.no. <- NULL
+data$Site.of.metastasis. <- NULL
+data$Previous.chemotherapy.and.cycles. <- NULL
+data$Dates. <- NULL
+data$None <- NULL
+data$Relevant.PMHx <- NULL
+data$Reason.for.delay <- NULL
+data$Was.the.dose.reduced. <- NULL
+data$If.yes.by.how.much. <- NULL
+data$Toxicity.and.grade <- NULL
+data$Further.chemotherapy.needed.and.cycles <- NULL
+data$Other.concurrent.treament. <- NULL
+data$Adjuvant_chemo. <-NULL
+data$CNS. <- NULL
+data$HCG.at.EP.EMA.failure <- NULL
+data$Patient.outcomes.and.toxicities <- NULL
+data$Previous_EP.EMA <- NULL
+data$Previous_TP.TE <- NULL
+data$Nephropathy <- NULL
+data$log_HCG.at.diagnosis..IU.L. <- log(data$HCG.at.diagnosis..IU.L.)
+```
+
+##Classifying variables 
+````{r}
+data$Age.at.diagnosis <- as.numeric(data$Age.at.diagnosis)
+data$Patient.no... <- as.numeric(data$Patient.no...)
+data$Gravidity <- as.numeric(data$Gravidity)
+data$Parity <- as.numeric(data$Parity)
+data$first_platinum_treatment <- factor(data$first_platinum_treatment, 
+                                        levels = c("TP_TE", "EP_EMA"),
+                                        labels = c("TP_TE", "EP_EMA"),
+                                        ordered = FALSE)
+data$first_platinum_treatment <- relevel(data$first_platinum_treatment, ref = "EP_EMA")
+data$Antecedent.pregnancy. <- factor(data$Antecedent.pregnancy., levels = c("Term",
+                                                                            "Complete molar pregnancy",
+                                                                            "Abortion"),
+                                     labels = c("Term", "Complete molar pregnancy", "Abortion"),
+                                     ordered = FALSE)
+data$Antecedent.pregnancy.interval..months. <- as.numeric(data$Antecedent.pregnancy.interval..months.)
+data$HCG.at.diagnosis..IU.L. <- as.numeric(data$HCG.at.diagnosis..IU.L.)
+data$Histology. <- factor(data$Histology., levels = c("Mixed", 
+                                                      "Choriocarcinoma", 
+                                                      "ETT", 
+                                                      "PSTT",
+                                                      "Persistent mole"), 
+                          labels = c("Mixed", "Choriocarcinoma", "ETT", "PSTT", "Persistent mole"),
+                          ordered = FALSE)
+data$Choriocarcinoma <- factor(data$Choriocarcinoma, levels = c (0,1), 
+                               labels = c("no", "yes"),
+                               ordered = FALSE)
+data$Post.molar.GTN <- factor(data$Post.molar.GTN, levels = c (0,1), 
+                              labels = c("no", "yes"),
+                              ordered = FALSE)
+data$Placental.site.trophoblastic.tumour <- factor(data$Placental.site.trophoblastic.tumour, 
+                                                   levels = c (0,1), 
+                                                   labels = c("no", "yes"),
+                                                   ordered = FALSE)
+data$Epithelial.trophoblastic.tumour <- factor(data$Epithelial.trophoblastic.tumour, levels = c (0,1), 
+                                               labels = c("no", "yes"),
+                                               ordered = FALSE)
+data$Risk.score.at.diagnosis <- as.numeric(data$Risk.score.at.diagnosis)
+data$Stage.at.diagnosis <- factor(data$Stage.at.diagnosis, 
+                                  levels = c("1", "2", "3", "4"),
+                                  ordered = FALSE)
+data$HCG.at.diagnosis..IU.L. <- as.numeric(data$HCG.at.diagnosis..IU.L.)
+data$Lung_mets <- factor(data$Lung_mets, levels = c(0, 1), 
+                         labels = c("no metastasis", "metastasis"),
+                         ordered = FALSE)
+data$Liver_mets <- factor(data$Liver_mets, 
+                          levels = c(0,1), 
+                          labels = c("no metastasis", "metastasis"),
+                          ordered = FALSE)
+data$Brain_mets <- factor(data$Brain_mets, 
+                          levels = c(0,1), 
+                          labels = c("no metastasis", "metastasis"),
+                          ordered = FALSE)
+data$Kidney_mets <- factor(data$Kidney_mets, 
+                           levels = c(0,1), 
+                           labels = c("no metastasis", "metastasis"),
+                           ordered = FALSE)
+data$Spleen_mets <- factor(data$Spleen_mets, 
+                           levels = c(0,1), 
+                           labels = c("no metastasis", "metastasis"),
+                           ordered = FALSE)
+data$Pacreas_mets <- factor(data$Pacreas_mets, 
+                            levels = c(0,1),
+                            labels = c("no metastasis", "metastasis"),
+                            ordered = FALSE)
+data$Bone_mets <- factor(data$Bone_mets, 
+                         levels = c(0,1), 
+                         labels = c("no metastasis", "metastasis"),
+                         ordered = FALSE)
+data$Abdo_wall_mets <- factor(data$Abdo_wall_mets, 
+                              levels = c(0,1), 
+                              labels = c("no metastasis", "metastasis"),
+                              ordered = FALSE)
+data$No_mets <- factor(data$No_mets, 
+                       levels = c(0,1), 
+                       labels = c("any metastasis", "no metastasis"),
+                       ordered = FALSE)
+data$Other_mets <- factor(data$Other_mets, 
+                          levels = c(0,1), 
+                          labels = c("no metastasis", "metastasis"),
+                          ordered = FALSE)
+data$Previous_EMA <- as.numeric(data$Previous_EMA)
+data$Previous_EMA.CO <- as.numeric(data$Previous_EMA.CO)
+data$Previous_MTX <- as.numeric(data$Previous_MTX)
+data$Previous_Actinomycin.D <- as.numeric(data$Previous_Actinomycin.D)
+data$Previous_Actinomycin.D.Etoposide <- as.numeric(data$Previous_Actinomycin.D.Etoposide)
+data$Previous_CarboAUC24 <- as.numeric(data$Previous_CarboAUC24)
+data$No_Prior_chemo <- factor(data$No_Prior_chemo,
+                                 levels = c(0,1),
+                                 labels = c("had_prior_chemo", "no_prior_chemo"), 
+                              ordered = FALSE)
+data$Platinum_indication. <- factor(data$Platinum_indication., 
+                                    levels = c("ETT", "relapse/refractory", "ultra-high risk", "PSTT", "HCG plateau", "Rising HCG"),
+                                    ordered = FALSE)
+data$Risk_score_at_platinum_start <- as.factor(data$Risk_score_at_platinum_start)
+data$HCG_at_platinum_start <- as.numeric(data$HCG_at_platinum_start)
+data$First_platinum_cycles <- as.numeric(data$First_platinum_cycles)
+data$Cycles_of_induction_EP. <- as.factor(data$Cycles_of_induction_EP.)
+data$Intra.thecal.Methotrexate.cycles <- as.factor(data$Intra.thecal.Methotrexate.cycles)
+data$GCSF_given. <- factor(data$GCSF_given.,
+                           levels = c("no", "yes_primary", "yes_secondary"),
+                           ordered = FALSE)
+data$Total.weeks.treatment.delay <- as.integer(data$Total.weeks.treatment.delay)
+data$First_platinum_response. <- factor(data$First_platinum_response.,  
+                                        levels = c("Complete", "partial", "None"),
+                                        ordered = FALSE)
+data$EMA.CO <- as.numeric(data$EMA.CO)
+data$Prembrolizumab <- as.numeric(data$Prembrolizumab)
+data$TP.TE <- as.numeric(data$TP.TE)
+data$EP <- as.factor(data$EP)
+data$HD.Carbo.Etop <- as.numeric(data$HD.Carbo.Etop)
+data$Carbo.paclitaxel <- as.numeric(data$Carbo.paclitaxel)
+data$CTE <- as.numeric(data$CTE)
+data$Cyclophosphamide <- as.numeric(data$Cyclophosphamide)
+data$Capecitabine <- as.numeric(data$Capecitabine)
+data$Stereotactic.Radiotherapy.needed. <- factor(data$Stereotactic.Radiotherapy.needed., level = c ("no", "yes"))
+data$Alive. <- as.factor(data$Alive.) 
+data$If.yes.follow.up.days <- as.numeric(data$If.yes.follow.up.days)
+data$HCG.at.platinum.failure <- as.numeric(data$HCG.at.platinum.failure)
+data$HCG.at.platinum.failure[is.na(data$HCG.at.platinum.failure)] <- 0
+data$Nausea <- factor(data$Nausea)
+data$Anaemia <- factor(data$Anaemia)
+data$Neutropenia <- factor(data$Neutropenia)
+data$Lymphopenia <- factor(data$Lymphopenia)
+data$Thrombocytopenia <- factor(data$Thrombocytopenia)
+data$Neuropathy <- factor(data$Neuropathy)
+data$Hair_loss <- factor(data$Hair_loss)
+data$Mucositis <- factor(data$Mucositis)
+data$Diarrhoea <- factor(data$Diarrhoea)
+data$Constipation <- factor(data$Constipation)
+data$Infection <- factor(data$Infection)
+data$Skin_reaction <- factor(data$Skin_reaction)
+data$Ototoxicity <- factor(data$Ototoxicity)
+data$Plantar_Palmar_erythema <- factor(data$Plantar_Palmar_erythema)
+data$Pleuritic_Abdo_pain <- factor(data$Pleuritic_Abdo_pain)
+data$If.yes.what.surgery.and.when <- as.character(data$If.yes.what.surgery.and.when)
+data$Historectomy <- factor(data$Historectomy, 
+                            levels = c("1", "0"),
+                            labels = c("yes", "no"))
+data$Resstcion.of.Mets <- factor(data$Resstcion.of.Mets, 
+                            levels = c("1", "0"),
+                            labels = c("yes", "no"))
+````
+
+##Generating secondary variables based on the original data collected
+```{r}
+data$HCG.fall <- data$HCG_at_platinum_start - data$HCG.at.platinum.failure
+data$HCG_percentage_change <- (data$HCG.fall / data$HCG_at_platinum_start ) *-100
+data$hCG_at_platinum_start_scaled <- scale(data$HCG_at_platinum_start, center = TRUE, scale = TRUE)
+data$Overall_patient_number <- 1:nrow(data)
+data <- data %>%
+  mutate(Risk_category_at_diagnosis = factor(case_when(
+    `Risk.score.at.diagnosis` >= 1 & `Risk.score.at.diagnosis` <= 6  ~ "low risk",
+    `Risk.score.at.diagnosis` >= 7 & `Risk.score.at.diagnosis` <= 11 ~ "high risk",
+    `Risk.score.at.diagnosis` >= 13                                  ~ "ultra-high risk"),
+  levels = c("low risk", "high risk", "ultra-high risk"), 
+  ordered = TRUE))
+data$hCG_CR <- fct_collapse(data$First_platinum_response.,
+                                              no = c("partial", "None"))
+data$First_platinum_response. <- relevel(data$hCG_CR, ref = "no")
+data$Non_term_pregnancies <- data$Gravidity - data$Parity
+```
+
+
+#RESULTS 4.0
+###4.1 Patient clinico-pathologic characteristics and Cisplatin regimen use cases 
+####Splitting dataset for various indications. Separate datasets were created for the EP/EMA and TP/TE cohorts as well as sub-data sets based on risk category and histological diagnosis.
+```{r}
+split_data <- split(data, data$first_platinum_treatment)
+EP_EMA_data <- as.data.frame(split_data$EP_EMA)
+TP_TE_data <- as.data.frame(split_data$TP_TE)
+
+EP_EMA_chorio_and_moles <- EP_EMA_data %>%
+  filter(Histology. %in% c("Choriocarcinoma", "Persistent mole"))
+
+EP_EMA_UHR <- EP_EMA_data %>%
+  filter(No_Prior_chemo %in% "no_prior_chemo" & Histology. %in% c("Choriocarcinoma", "Persistent mole"))
+
+EP_EMA_refractory_patients <- EP_EMA_data %>%
+  filter(No_Prior_chemo %in% "had_prior_chemo" & Histology. %in% c("Choriocarcinoma", "Persistent mole"))
+
+TP_TE_refractory_lowrisk <- TP_TE_data %>% 
+  filter(Risk_category_at_diagnosis %in% c("low risk"))
+
+TP_TE_refractory_highrisk <- TP_TE_data %>%
+  filter(Risk_category_at_diagnosis %in% c("high risk"))
+
+TP_TE_ultrahighrisk <- TP_TE_data %>%
+  filter(Risk_category_at_diagnosis %in% c("ultra-high risk"))
+
+All_chorio_and_persistent_mole <- data %>%
+  filter(Histology. %in% c("Choriocarcinoma", "Persistent mole"))
+
+TP_TE_refractory_ultrahighrisk <- All_chorio_and_persistent_mole %>%
+    filter(TP.TE > 0)
+
+EP_EMA_failed <- All_chorio_and_persistent_mole %>%
+  filter(hCG_CR == "no" & first_platinum_treatment == "EP_EMA")
+
+EP_EMA_UHR_failed <- EP_EMA_failed %>%
+  filter(Risk_category_at_diagnosis == "ultra-high risk")
+
+All_chorio_and_persistent_mole_platinum_failed <- All_chorio_and_persistent_mole %>%
+  filter(hCG_CR == c("no"))
+
+
+EP_EMA_UHR_lung <- EP_EMA_UHR %>%
+  filter(Lung_mets == "metastasis")
+EP_EMA_refractory_patients_lung <- EP_EMA_refractory_patients %>%
+  filter(Lung_mets == "metastasis")
+EP_EMA_UHR_liver <- EP_EMA_UHR %>%
+  filter(Liver_mets == "metastasis")
+EP_EMA_refractory_patients_liver <- EP_EMA_refractory_patients %>%
+  filter(Liver_mets == "metastasis")
+EP_EMA_UHR_brain <- EP_EMA_UHR %>%
+  filter(Brain_mets == "metastasis")
+EP_EMA_refractory_patients_brain <- EP_EMA_refractory_patients %>%
+  filter(Brain_mets == "metastasis")
+
+EP_EMA_liver_or_brain_mets <- All_chorio_and_persistent_mole %>%
+  filter((Liver_mets == "metastasis" | Brain_mets == "metastasis") & first_platinum_treatment == "EP_EMA")
+
+TP_TE_liver_or_brain_mets <- All_chorio_and_persistent_mole %>%
+  filter((Liver_mets == "metastasis" | Brain_mets == "metastasis") & first_platinum_treatment == "TP_TE")
+
+TP_TE_refractory_lowrisk_lung <- TP_TE_refractory_lowrisk %>%
+  filter(Lung_mets == "metastasis")
+TP_TE_refractory_highrisk_lung <- TP_TE_refractory_highrisk %>%
+  filter(Lung_mets == "metastasis")
+TP_TE_refractory_lowrisk_liver <- TP_TE_refractory_lowrisk %>%
+  filter(Liver_mets == "metastasis")
+TP_TE_refractory_highrisk_liver <- TP_TE_refractory_highrisk %>%
+  filter(Liver_mets == "metastasis")
+TP_TE_refractory_lowrisk_brain <- TP_TE_refractory_lowrisk %>%
+  filter(Brain_mets == "metastasis")
+TP_TE_refractory_highrisk_brain <- TP_TE_refractory_highrisk %>%
+  filter(Brain_mets == "metastasis")
+TP_TE_ultrahighrisk_lung <- TP_TE_ultrahighrisk %>%
+  filter(Lung_mets == "metastasis")
+TP_TE_ultrahighrisk_liver <- TP_TE_ultrahighrisk %>%
+  filter(Liver_mets == "metastasis")
+TP_TE_ultrahighrisk_brain <- TP_TE_ultrahighrisk %>%
+  filter(Brain_mets == "metastasis")
+
+Further_surgery_patients <- All_chorio_and_persistent_mole %>%
+  filter(Further.surgery.needed. == "yes")
+```
+
+####Investigating correlations between patient characteristics and treamtent received
+```{r}
+t.test(Age.at.diagnosis ~ first_platinum_treatment, data = All_chorio_and_persistent_mole)
+
+t.test(Risk.score.at.diagnosis ~ first_platinum_treatment, data = All_chorio_and_persistent_mole)
+
+wilcox.test(HCG.at.diagnosis..IU.L.~ first_platinum_treatment, data = All_chorio_and_persistent_mole)
+wilcox.test(Antecedent.pregnancy.interval..months. ~ first_platinum_treatment, data = All_chorio_and_persistent_mole)
+
+cor.test(TP_TE_data$mean_tox_burden,TP_TE_data$Age.at.diagnosis, method = "pearson")
+cor.test(EP_EMA_chorio_and_moles$mean_tox_burden,EP_EMA_chorio_and_moles$Age.at.diagnosis, method = "pearson")
+
+Antecendent_pregnancy_type_fisher_test_table <- table(All_chorio_and_persistent_mole$first_platinum_treatment, All_chorio_and_persistent_mole$Antecedent.pregnancy.)
+fisher.test(Antecendent_pregnancy_type_fisher_test_table)
+
+Lung_mets_fisher_test_table <- table(All_chorio_and_persistent_mole$first_platinum_treatment, All_chorio_and_persistent_mole$Lung_mets)
+fisher.test(Lung_mets_fisher_test_table)
+
+Liver_mets_fisher_test_table <- table(All_chorio_and_persistent_mole$first_platinum_treatment, All_chorio_and_persistent_mole$Liver_mets)
+fisher.test(Liver_mets_fisher_test_table)
+
+Brain_mets_fisher_test_table <- table(All_chorio_and_persistent_mole$first_platinum_treatment, All_chorio_and_persistent_mole$Brain_mets)
+fisher.test(Brain_mets_fisher_test_table)
+```
+####Investigating dataset wide correlations for help selecting variabls for future modeling 
+```{r}
+df <- All_chorio_and_persistent_mole
+numeric_variables <- names(df)[sapply(df, is.numeric)]
+numeric_variables <- numeric_variables[sapply(df[numeric_variables], function(x) sd(x, na.rm = TRUE) > 0)]
+factor_variables <- names(df)[sapply(df, is.factor)]
+all_variables <- c(numeric_variables, factor_variables)
+factor_variables <- factor_variables[sapply(df[factor_variables], function(x) nlevels(x) > 1)]
+vars <- c(numeric_variables, factor_variables)
+
+
+numeric_numeric_association <- function(x, y) {
+  valid_idx <- !is.na(x) & !is.na(y)
+  x <- x[valid_idx]
+  y <- y[valid_idx]
+  if (length(unique(x)) < 2 | length(unique(y)) < 2) return(NA)
+  cor(x, y, method = "spearman")
+}
+factor_factor_association <- function(x, y) {
+  valid_idx <- !is.na(x) & !is.na(y)
+  x <- droplevels(x[valid_idx])
+  y <- droplevels(y[valid_idx])
+  if (nlevels(x) < 2 | nlevels(y) < 2) return(NA)
+  vcd::assocstats(table(x, y))$cramer
+}
+numeric_factor_association <- function(num, cat) {
+  valid_idx <- !is.na(num) & !is.na(cat)
+  num <- num[valid_idx]
+  cat <- droplevels(cat[valid_idx])  # <-- THIS is the key
+  if (nlevels(cat) < 2 | length(unique(num)) < 2) return(NA)
+  DescTools::EtaSq(aov(num ~ cat), type = 1)[1, "eta.sq"]
+}
+
+
+correlation_matrix <- matrix(NA, nrow = length(vars), ncol = length(vars))
+rownames(correlation_matrix) <- vars
+colnames(correlation_matrix) <- vars
+
+for (i in vars) {
+  for (j in vars) {
+    if (i == j) {
+      correlation_matrix[i, j] <- 1
+    } 
+    else if (i %in% numeric_variables & j %in% numeric_variables) {
+      correlation_matrix[i, j] <- numeric_numeric_association(df[[i]], df[[j]])
+    } 
+    else if (i %in% factor_variables & j %in% factor_variables) {
+      correlation_matrix[i, j] <- factor_factor_association(df[[i]], df[[j]])
+    } 
+    else if (i %in% numeric_variables & j %in% factor_variables) {
+      correlation_matrix[i, j] <- numeric_factor_association(df[[i]], df[[j]])
+    } 
+    else if (i %in% factor_variables & j %in% numeric_variables) {
+      correlation_matrix[i, j] <- numeric_factor_association(df[[j]], df[[i]])
+    }
+  }
+}
+
+
+
+png("dataset_wide_correlation_plot.png", width = 10, height = 10, units = "in", res = 300)
+corrplot(
+  correlation_matrix,
+  method = "color",
+  type = "upper",
+  tl.col = "black",
+  tl.cex = 0.3,
+  tl.srt = 45,
+  na.label = " "
+)
+dev.off()
+```
+
+##4.2 Toxicity profile and weighted toxicity score
+####Re-labelling all the toxicity data as numeric to allow for calculation 
+```{r}
+data$Nausea <- as.integer(data$Nausea)
+data$Anaemia <- as.integer(data$Anaemia)
+data$Neutropenia <- as.integer(data$Neutropenia)
+data$Lymphopenia <- as.integer(data$Lymphopenia)
+data$Thrombocytopenia <- as.integer(data$Thrombocytopenia)
+data$Total_haem_burden <- as.integer(data$Total_haem_burden)
+data$Neuropathy <- as.integer(data$Neuropathy)
+data$Hair_loss <- as.integer(data$Hair_loss)
+data$Mucositis <- as.integer(data$Mucositis)
+data$Diarrhoea <- as.integer(data$Diarrhoea)
+data$Constipation <- as.integer(data$Constipation)
+data$Infection <- as.integer(data$Infection)
+data$Skin_reaction <- as.integer(data$Skin_reaction)
+data$Ototoxicity <- as.integer(data$Ototoxicity)
+data$Plantar_Palmar_erythema <- as.integer(data$Plantar_Palmar_erythema)
+data$Pleuritic_Abdo_pain <- as.integer(data$Pleuritic_Abdo_pain)
+data$Total_tox_burden <- as.integer(data$Total_tox_burden)
+data$mean_tox_burden <- as.numeric(data$mean_tox_burden)
+data$mean_haem_burden <- as.numeric(data$mean_haem_burden)
+```
+####Extracting only the toxicity data from each sub dataset 
+```{r}
+TP_TE_Toxicity_data <- TP_TE_data %>%
+  select(Patient.no...,Nausea, Anaemia, Neutropenia, Lymphopenia, Thrombocytopenia, Neuropathy, Hair_loss, Mucositis, Diarrhoea, Constipation, Infection, Skin_reaction, Ototoxicity, Plantar_Palmar_erythema, Pleuritic_Abdo_pain)
+
+EP_EMA_chorio_and_moles_Toxicity_data <- EP_EMA_chorio_and_moles %>%
+  select(Patient.no...,Nausea, Anaemia, Neutropenia, Lymphopenia, Thrombocytopenia, Neuropathy, Hair_loss, Mucositis, Diarrhoea, Constipation, Infection, Skin_reaction, Ototoxicity, Plantar_Palmar_erythema, Pleuritic_Abdo_pain)
+```
+####Now I am extracting each toxicity and the percentage of patietns that experienced it at each grade 
+```{r}
+data_long <- TP_TE_Toxicity_data %>%
+  pivot_longer(cols = -Patient.no..., names_to = "Toxicity", values_to = "grade")
+combined_tox_summary_table <- data_long %>%
+  group_by(Toxicity, grade) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(Toxicity) %>%
+  mutate(percentage = count / sum(count)) %>%
+  ungroup() %>%
+  select(-count)
+TP_TE_tox_summary_table_reshaped <- combined_tox_summary_table %>%
+  pivot_wider(names_from = grade, values_from = percentage, values_fill = list(percentage = 0)) %>%
+  rename_with(~ paste0("Grade_", .), -Toxicity)
+TP_TE_tox_summary_table_reshaped <- TP_TE_tox_summary_table_reshaped %>%
+  arrange(Toxicity)
+TP_TE_tox_summary_table_reshaped$Grade_0 <- as.numeric(TP_TE_tox_summary_table_reshaped$Grade_0)
+TP_TE_tox_summary_table_reshaped$Grade_1 <- as.numeric(TP_TE_tox_summary_table_reshaped$Grade_1)
+TP_TE_tox_summary_table_reshaped$Grade_2 <- as.numeric(TP_TE_tox_summary_table_reshaped$Grade_2)
+TP_TE_tox_summary_table_reshaped$Grade_3 <- as.numeric(TP_TE_tox_summary_table_reshaped$Grade_3)
+TP_TE_tox_summary_table_reshaped$Grade_4 <- replicate(15,0)
+print(TP_TE_tox_summary_table_reshaped)
+
+
+data_long <- EP_EMA_chorio_and_moles_Toxicity_data %>%
+  pivot_longer(cols = -Patient.no..., names_to = "Toxicity", values_to = "grade")
+combined_tox_summary_table <- data_long %>%
+  group_by(Toxicity, grade) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(Toxicity) %>%
+  mutate(percentage = count / sum(count)) %>%
+  ungroup() %>%
+  select(-count)
+EP_EMA_chorio_and_moles_tox_summary_table_reshaped <- combined_tox_summary_table %>%
+  pivot_wider(names_from = grade, values_from = percentage, values_fill = list(percentage = 0)) %>%
+  rename_with(~ paste0("Grade_", .), -Toxicity)
+EP_EMA_chorio_and_moles_tox_summary_table_reshaped <- EP_EMA_chorio_and_moles_tox_summary_table_reshaped %>%
+  arrange(Toxicity)
+EP_EMA_chorio_and_moles_tox_summary_table_reshaped$Grade_0 <- as.numeric(EP_EMA_chorio_and_moles_tox_summary_table_reshaped$Grade_0)
+EP_EMA_chorio_and_moles_tox_summary_table_reshaped$Grade_1 <- as.numeric(EP_EMA_chorio_and_moles_tox_summary_table_reshaped$Grade_1)
+EP_EMA_chorio_and_moles_tox_summary_table_reshaped$Grade_2 <- as.numeric(EP_EMA_chorio_and_moles_tox_summary_table_reshaped$Grade_2)
+EP_EMA_chorio_and_moles_tox_summary_table_reshaped$Grade_3 <- as.numeric(EP_EMA_chorio_and_moles_tox_summary_table_reshaped$Grade_3)
+EP_EMA_chorio_and_moles_tox_summary_table_reshaped$Grade_4 <- as.numeric(EP_EMA_chorio_and_moles_tox_summary_table_reshaped$Grade_4)
+print(EP_EMA_chorio_and_moles_tox_summary_table_reshaped)
+```
+
+####Specifying the weighting for each toxicity and grade 
+```{r}
+Toxicity_weights <- data.frame(
+  Toxicity = c("Nausea", "Anaemia", "Neutropenia", "Lymphopenia", "Thrombocytopenia", "Neuropathy", "Hair_loss","Mucositis", "Diarrhoea", "Constipation", "Infection", "Skin_reaction", "Ototoxicity", "Plantar_Palmar_erythema", "Pleuritic_Abdo_pain"),
+  Grade_0 = c("0","0","0","0","0","0","0","0","0","0","0","0","0","0","0"),
+  Grade_1 = c("4","2","0","4","4","8","8","4","4","4","4","0","8","8","8"),
+  Grade_2 = c("8","4","0","8","8","16","16","8","8","8","8","16","32","16","16"),
+  Grade_3 = c("32","8","16","32","32","32","0","32","16","16","32","32","64","32","32"),
+  Grade_4 = c("0","32","32","64","64","64","0","0","32","64","64","64","0","0","0"))
+Toxicity_weights <- Toxicity_weights %>%
+  arrange(Toxicity)
+print(Toxicity_weights)
+write.csv(Toxicity_weights, '/Users/arthurevans/Library/Mobile Documents/com~apple~CloudDocs/Documents/Work/Research stuff/Platinum dataset stuff /Data/Toxicity_weights.csv', row.names = FALSE)
+Toxicity_weights$Grade_0 <- as.numeric(Toxicity_weights$Grade_0)
+Toxicity_weights$Grade_1 <- as.numeric(Toxicity_weights$Grade_1)
+Toxicity_weights$Grade_2 <- as.numeric(Toxicity_weights$Grade_2)
+Toxicity_weights$Grade_3 <- as.numeric(Toxicity_weights$Grade_3)
+Toxicity_weights$Grade_4 <- as.numeric(Toxicity_weights$Grade_4)
+```
+
+####Now that the percentage spread of each toxicity and the weighting of each to toxicity have been specified I can calculate the actual WTS for each cohort 
+```{r}
+EP_EMA_chorio_and_moles_tox_weighted <- cbind(
+  Toxicity = EP_EMA_chorio_and_moles_tox_summary_table_reshaped$Toxicity, 
+  as.data.frame(Map(`*`,
+    EP_EMA_chorio_and_moles_tox_summary_table_reshaped %>% select(-Toxicity), 
+    Toxicity_weights %>% select(-Toxicity))))
+EP_EMA_chorio_and_moles_wts <- sum(unlist(EP_EMA_chorio_and_moles_tox_weighted %>% select(-Toxicity)))
+print(EP_EMA_chorio_and_moles_wts)
+
+
+TP_TE_tox_weighted <- cbind(
+  Toxicity = TP_TE_tox_summary_table_reshaped$Toxicity,
+  as.data.frame(Map(`*`,
+    TP_TE_tox_summary_table_reshaped %>% select(-Toxicity),
+    Toxicity_weights %>% select(-Toxicity))))
+TP_TE_wts <- sum(unlist(TP_TE_tox_weighted %>% select(-Toxicity)))
+print(TP_TE_wts)
+```
+
+
+####Figure 2a&b
+```{r}
+Excluded_toxiciites <- c("Pleuritic_Abdo_pain", "Plantar_Palmar_erythema", "Skin_reaction")
+
+tox_cols <- colorRampPalette(c("#C3ECF4","#E41A1C"))(4)
+tox_cols_labels <- c("Grade_0" = "#FFFFFF00",
+                     "Grade_1"= tox_cols[1],
+                     "Grade_2"= tox_cols[2],
+                     "Grade_3"= tox_cols[3],
+                     "Grade_4"= tox_cols[4])
+
+
+
+TP_TE_tox_spread_data <- as.data.frame(TP_TE_tox_summary_table_reshaped, row.names = TRUE)
+TP_TE_tox_spread_data <- TP_TE_tox_spread_data %>%
+  filter(!Toxicity %in% Excluded_toxiciites)
+TP_TE_tox_spread_data_long <- TP_TE_tox_spread_data %>%
+  pivot_longer(cols = starts_with("Grade_"),
+               names_to = "Grade",
+               values_to = "Percentage")
+TP_TE_tox_spread_plot <- ggplot(TP_TE_tox_spread_data_long, aes(x= Toxicity, y = Percentage, fill = Grade)) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(values = tox_cols_labels) +
+  theme_classic() +
+  theme(text = element_text(size = 15)) +
+  coord_flip()+ 
+  ggtitle("B) TP/TE toxicity spread")
+print(TP_TE_tox_spread_plot)
+ggsave("TP_TE_tox_spread_plot.png", plot = TP_TE_tox_spread_plot, width = 7, height = 4, dpi = 300)
+
+
+
+
+EP_EMA_chorio_and_moles_tox_spread_data <- as.data.frame(EP_EMA_chorio_and_moles_tox_summary_table_reshaped, row.names = TRUE)
+EP_EMA_chorio_and_moles_tox_spread_data <- EP_EMA_chorio_and_moles_tox_spread_data %>%
+  filter(!Toxicity %in% Excluded_toxiciites)
+EP_EMA_chorio_and_moles_tox_spread_data_long <- EP_EMA_chorio_and_moles_tox_spread_data %>%
+  pivot_longer(cols = starts_with("Grade_"),
+               names_to = "Grade",
+               values_to = "Percentage")
+EP_EMA_chorio_and_moles_tox_spread_plot <- ggplot(EP_EMA_chorio_and_moles_tox_spread_data_long, aes(x= Toxicity, y = Percentage, fill = Grade)) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(values = tox_cols_labels) +
+  theme_classic() +
+  theme(
+    text = element_text(size = 15)) +
+  coord_flip() + 
+  ggtitle("A) EP/EMA toxicity spread")
+print(EP_EMA_chorio_and_moles_tox_spread_plot)
+ggsave("EP_EMA_chorio_and_moles_tox_spread_plot.png", plot = EP_EMA_chorio_and_moles_tox_spread_plot, width =7, height =4, dpi = 300)
+
+```
+
+####Predictive factors of toxicity response
+```{r}
+relevel(All_chorio_and_persistent_mole$first_platinum_treatment, "EP_EMA")
+platinum_toxicity_comparison <- glm(mean_tox_burden ~
+                                      Risk.score.at.diagnosis +
+                                      Age.at.diagnosis +
+                                      Stage.at.diagnosis +
+                                      first_platinum_treatment, 
+                                    data = All_chorio_and_persistent_mole,
+                                    family = gaussian)
+summary(platinum_toxicity_comparison)
+BIC(platinum_toxicity_comparison)
+logLik(platinum_toxicity_comparison)
+pR2(platinum_toxicity_comparison)
+```
+####Figure 2c,d,&e
+```{r}
+All_chorio_and_persistent_mole$first_platinum_treatment <- 
+  factor(All_chorio_and_persistent_mole$first_platinum_treatment,
+         levels = rev(levels(All_chorio_and_persistent_mole$first_platinum_treatment)))
+
+Mean_toxicity_burden_plot <- ggplot(All_chorio_and_persistent_mole,
+                                    aes(x = first_platinum_treatment,
+                                        y = mean_tox_burden,
+                                        colour = first_platinum_treatment)) +
+  geom_boxplot(outlier.shape = NA, width = 0.5, size = 1) +
+  geom_jitter(width = 0.1, alpha = 0.7, size = 2) +
+  labs(x = "First_CBC",
+       y = "Mean_tox_burden",
+       title = "C) Mean tox burden by first CBC in all patients") +
+  theme_classic() + theme(legend.position = "right")
+print(Mean_toxicity_burden_plot)
+ggsave("Mean_toxicity_burden_plot.png", plot = Mean_toxicity_burden_plot, width = 6, height = 4, dpi = 300)
+
+
+
+Mean_toxicity_burden_by_age_plot <- All_chorio_and_persistent_mole%>% ggplot(aes(x= Age.at.diagnosis, y= mean_tox_burden, hwy, colour = first_platinum_treatment))  + 
+  geom_jitter() + 
+  geom_smooth(method = glm, ) +
+  labs(x = "Age_at_diagnosis",
+  y = "Mean_tox_burden",
+  title = "D) Mean tox burden by age in all patients") +
+  theme_classic()
+print(Mean_toxicity_burden_by_age_plot)
+ggsave("Mean_toxicity_burden_by_age_plot.png", plot = Mean_toxicity_burden_by_age_plot, width =6, height = 4, dpi = 300)
+
+
+EP_EMA_chorio_and_moles_tox_weighted <- as.data.frame(EP_EMA_chorio_and_moles_tox_weighted)
+EP_EMA_chorio_and_moles_tox_weighted$Grade_0 <- as.numeric(EP_EMA_chorio_and_moles_tox_weighted$Grade_0)
+EP_EMA_chorio_and_moles_tox_weighted$Grade_1 <- as.numeric(EP_EMA_chorio_and_moles_tox_weighted$Grade_1)
+EP_EMA_chorio_and_moles_tox_weighted$Grade_2 <- as.numeric(EP_EMA_chorio_and_moles_tox_weighted$Grade_2)
+EP_EMA_chorio_and_moles_tox_weighted$Grade_3 <- as.numeric(EP_EMA_chorio_and_moles_tox_weighted$Grade_3)
+EP_EMA_chorio_and_moles_tox_weighted$Grade_4 <- as.numeric(EP_EMA_chorio_and_moles_tox_weighted$Grade_4)
+EP_EMA_chorio_and_moles_tox_weighted$total_wts_contribution <- rowSums(EP_EMA_chorio_and_moles_tox_weighted %>% select(-Toxicity))
+
+TP_TE_tox_weighted <- as.data.frame(TP_TE_tox_weighted)
+TP_TE_tox_weighted$Grade_0 <- as.numeric(TP_TE_tox_weighted$Grade_0)
+TP_TE_tox_weighted$Grade_1 <- as.numeric(TP_TE_tox_weighted$Grade_1)
+TP_TE_tox_weighted$Grade_2 <- as.numeric(TP_TE_tox_weighted$Grade_2)
+TP_TE_tox_weighted$Grade_3 <- as.numeric(TP_TE_tox_weighted$Grade_3)
+TP_TE_tox_weighted$Grade_4 <- as.numeric(TP_TE_tox_weighted$Grade_4)
+TP_TE_tox_weighted$total_wts_contribution <- rowSums(TP_TE_tox_weighted %>% select (-Toxicity))
+
+WTS_graph_data <- EP_EMA_chorio_and_moles_tox_weighted %>%
+  select(Toxicity, total_wts_contribution) %>%
+  left_join(
+    TP_TE_tox_weighted %>% select(Toxicity, total_wts_contribution),
+    by = "Toxicity",
+    suffix = c("EP_EMA_chorio_and_moles", "TP_TE")
+  )
+
+WTS_graph_data <- WTS_graph_data %>%
+  pivot_longer(
+    cols = starts_with("total_wts_contribution"),
+    names_to = "Group",
+    values_to = "Weight"
+    ) %>%
+  mutate(Group = case_when(
+    Group == "total_wts_contributionEP_EMA_chorio_and_moles" ~ "EP_EMA_chorio_and_moles",
+    Group == "total_wts_contributionTP_TE" ~ "TP_TE"
+  ))
+
+paired_colours <- brewer.pal(12, "Paired")
+extra_colours <- c("#000000", "#808080", "#FFB81C")
+combined_colours <- c(paired_colours, extra_colours)
+
+WTS_breakdown_plot <- ggplot(WTS_graph_data, aes(x = Group, y = Weight, fill = Toxicity)) + 
+  geom_bar(stat = "identity") + 
+  labs(x = "First CBC", y = "Weighted Toxicity Score", fill = "Individual Toxicity Contributions") +
+  theme_classic() +
+  scale_fill_manual(values = combined_colours) +
+  ggtitle("E) Weighted toxicity score by CBC")
+print(WTS_breakdown_plot)
+ggsave("WTS_breakdown_plot.png", plot = WTS_breakdown_plot, height = 4, width = 8, dpi = 300)
+```
+
+
+
+##4.3 CBC outcomes 
+####hCG-CR rates
+```{r}
+summary(TP_TE_data$hCG_CR)
+summary(TP_TE_refractory_highrisk$hCG_CR)
+summary(TP_TE_refractory_lowrisk$hCG_CR)
+summary(TP_TE_refractory_ultrahighrisk$hCG_CR)
+summary(TP_TE_ultrahighrisk$hCG_CR)
+
+summary(EP_EMA_chorio_and_moles$hCG_CR)
+summary(EP_EMA_UHR$hCG_CR)
+summary(EP_EMA_refractory_patients$hCG_CR)
+```
+
+#### Predicitve factors of response 
+```{r}
+relevel(All_chorio_and_persistent_mole$Histology, "Persistent mole")
+relevel(All_chorio_and_persistent_mole$first_platinum_treatment, "TP_TE")
+
+ 
+Combined_response_first_logistic_regression <- glm(hCG_CR ~ 
+                                                     Risk.score.at.diagnosis +
+                                                     Antecedent.pregnancy.interval..months. +
+                                                     First_platinum_cycles +
+                                                     first_platinum_treatment, 
+                                                   family = binomial,
+                                                   data = All_chorio_and_persistent_mole)
+
+summary(Combined_response_first_logistic_regression)
+BIC(Combined_response_first_logistic_regression)
+logLik(Combined_response_first_logistic_regression)
+pR2(Combined_response_first_logistic_regression)
+
+emm_binomial <- emmeans(
+  Combined_response_first_logistic_regression, ~ first_platinum_treatment,
+  type = "response"
+)
+hCG_CR_emmeans_df <- as.data.frame(emm_binomial)
+
+All_chorio_and_persistent_mole <- All_chorio_and_persistent_mole |>
+  dplyr::mutate(
+    hCG_CR = ifelse(hCG_CR == "Complete", 1, 0)
+  )
+hCG_CR_predicted_probability_plot <- ggplot() +
+  geom_jitter(data = All_chorio_and_persistent_mole, aes(x= first_platinum_treatment, y = hCG_CR, colour = first_platinum_treatment),
+              width = 0.1,
+              height = 0.1,
+              alpha = 0.5, 
+              size = 1.5) +
+  geom_point(data = hCG_CR_emmeans_df, aes (x = first_platinum_treatment, y = prob, colour = first_platinum_treatment),
+             size = 3) + 
+  geom_errorbar(data = hCG_CR_emmeans_df, aes(x = first_platinum_treatment, 
+             ymin = asymp.LCL, 
+             ymax = asymp.UCL, 
+             colour = first_platinum_treatment), 
+             width = 0.15) +
+    labs(
+    x = "First CBC",
+    y = "Adjusted probability of hCG_CR"
+  ) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  ggtitle("Predicted probability of hCG_CR by first CBC")
+print(hCG_CR_predicted_probability_plot)
+ggsave("hCH_CR_predicted_probability_plot.png", plot = hCG_CR_predicted_probability_plot, width =6, height = 4, dpi = 300)
+```
+
+##5.0 Extra WTS calculations for discussion 
+```{r}
+####Extra dataset wts calculations
+#Custom toxicity weighting tables must be made due to differing toxicities recorded. As differing toxicities were recorded between the present, and the EMA/CO and MEA datasets, diferent toxicities were omitted from calculations depending on the comparison groups. Details to be found in the methods sections 
+
+#New waiting table 
+Toxicity_weights <- data.frame(
+  Toxicity = c("Nausea", "Anaemia", "Neutropenia", "Thrombocytopenia", "Neuropathy", "Hair_loss","Mucositis", "Diarrhoea", "Constipation", "Infection", "Skin_reaction", "Ototoxicity", "Plantar_Palmar_erythema", "Pleuritic_Abdo_pain"),
+  Grade_0 = c("0","0","0","0","0","0","0","0","0","0","0","0","0","0"),
+  Grade_1 = c("4","2","0","4","8","8","4","4","4","4","0","8","8","8"),
+  Grade_2 = c("8","4","0","8","16","16","8","8","8","8","16","32","16","16"),
+  Grade_3 = c("32","8","16","32","32","0","32","16","16","32","32","64","32","32"),
+  Grade_4 = c("0","32","32","64","64","0","0","32","64","64","64","0","0","0"))
+Toxicity_weights <- Toxicity_weights %>%
+  arrange(Toxicity)
+print(Toxicity_weights)
+write.csv(Toxicity_weights, 'filepath/Toxicity_weights.csv', row.names = FALSE)
+Toxicity_weights$Grade_0 <- as.numeric(Toxicity_weights$Grade_0)
+Toxicity_weights$Grade_1 <- as.numeric(Toxicity_weights$Grade_1)
+Toxicity_weights$Grade_2 <- as.numeric(Toxicity_weights$Grade_2)
+Toxicity_weights$Grade_3 <- as.numeric(Toxicity_weights$Grade_3)
+Toxicity_weights$Grade_4 <- as.numeric(Toxicity_weights$Grade_4)
+
+
+#Applying the weightings to MEA and EMA_CO toxocity spread tables
+MEA_tox_weighted <- cbind(
+  Toxicity = MEA_tox$Toxicity, 
+  as.data.frame(Map(`*`,
+    MEA_tox%>% select(-Toxicity), 
+    Toxicity_weights %>% select(-Toxicity))))
+MEA_wts <- sum(unlist(MEA_tox_weighted %>% select(-Toxicity)))
+print(MEA_wts)
+
+EMA_CO_tox_weighted <- cbind(
+  Toxicity = EMA_CO_tox$Toxicity, 
+  as.data.frame(Map(`*`,
+    EMA_CO_tox%>% select(-Toxicity), 
+    Toxicity_weights %>% select(-Toxicity))))
+EMA_CO_wts <- sum(unlist(EMA_CO_tox_weighted %>% select(-Toxicity)))
+print(EMA_CO_wts)
+
+#Removing lymphopenia from EP_EMA toxicity dataset 
+EP_EMA_no_lymphopenia_tox <- EP_EMA_chorio_and_moles_tox_summary_table_reshaped[EP_EMA_chorio_and_moles_tox_summary_table_reshaped$Toxicity != "Lymphopenia", ]
+
+EP_EMA_no_lymphopenia_tox_weighted <- cbind(
+  Toxicity = EP_EMA_no_lymphopenia_tox$Toxicity, 
+  as.data.frame(Map(`*`,
+    EP_EMA_no_lymphopenia_tox%>% select(-Toxicity), 
+    Toxicity_weights %>% select(-Toxicity))))
+EP_EMA_no_lymphopenia_wts <- sum(unlist(EP_EMA_no_lymphopenia_tox_weighted %>% select(-Toxicity)))
+print(EP_EMA_no_lymphopenia_wts)
+
+#Removing lymphopenia from TP_TE toxicity dataset 
+TP_TE_no_lymphopenia_tox <- TP_TE_tox_summary_table_reshaped[TP_TE_tox_summary_table_reshaped$Toxicity != "Lymphopenia", ]
+
+TP_TE_no_lymphopenia_tox_weighted <- cbind(
+  Toxicity = TP_TE_no_lymphopenia_tox$Toxicity, 
+  as.data.frame(Map(`*`,
+    TP_TE_no_lymphopenia_tox%>% select(-Toxicity), 
+    Toxicity_weights %>% select(-Toxicity))))
+TP_TE_no_lymphopenia_wts <- sum(unlist(TP_TE_no_lymphopenia_tox_weighted %>% select(-Toxicity)))
+print(TP_TE_no_lymphopenia_wts)
+
+
+```
